@@ -1,0 +1,27 @@
+{
+   ncurses_all_malloc_reachable
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:*alloc
+   ...
+   obj:*/libncursesw.so.*
+}
+
+{
+   ncurses_all_malloc_possible
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:*alloc
+   ...
+   obj:*/libncursesw.so.*
+}
+
+{
+   ncurses_setupterm_specific
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:*alloc
+   ...
+   fun:_nc_setupterm
+   ...
+}
