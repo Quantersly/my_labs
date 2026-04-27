@@ -308,7 +308,7 @@ Err_tree tree_traverse(const Tree *tree, const char *limit, Node ***out, size_t 
         if (!limit || strcmp(cur->key, limit) <= 0)
             count++;
         cur = cur->next;
-    }
+    } // избавиться от линейной зависимости
 
     if (count == 0)
         return ERR_TREE_NOT_FOUND;
@@ -335,7 +335,8 @@ Err_tree tree_traverse(const Tree *tree, const char *limit, Node ***out, size_t 
     return ERR_TREE_OK;
 }
 
-// 4. Ввод/вывод
+// 4. Ввод/вывод 
+// избавиться от рекурсии, добавить взамен цикл while для подсчёта глубины через родителя
 
 Err_tree tree_import(Tree *tree, const char *filename) {
     FILE *f = fopen(filename, "r");
@@ -411,6 +412,7 @@ static void graphviz_recursive(const Node *node, FILE *f) {
         fprintf(f, "n%s:r -> n%s;", node->key, node->right->key);
         graphviz_recursive(node->right, f);
     }
+    // Добавить укзание на узел prev
 }
 
 Err_tree tree_graphviz(const Tree *tree) {
