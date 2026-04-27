@@ -1,0 +1,6 @@
+grape
+100
+lemon
+200
+peach
+300
