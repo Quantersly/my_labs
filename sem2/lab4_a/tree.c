@@ -14,7 +14,6 @@ Err_tree tree_create(Tree **tree) {
         return ERR_TREE_MEM;
 
     (*tree)->root = NULL;
-    (*tree)->size = 0;
 
     return ERR_TREE_OK;
 }
@@ -42,26 +41,32 @@ static Node *node_create(const char *key, InfoType value) {
     node->left = NULL;
     node->right = NULL;
     node->parent = NULL;
-    node->next = NULL;
     node->prev = NULL;
 
     return node;
 }
 
-static void node_free(Node *node) {
-    if (!node)
-        return;
-    node_free(node->left);
-    node_free(node->right);
-    free(node->key);
-    free(node->info);
-    free(node);
-}
-
 void tree_free(Tree *tree) {
-    if (!tree)
+    if (!tree) return;
+    if (!tree->root) {
+        free(tree);
         return;
-    node_free(tree->root);
+    }
+
+    Node *cur = tree->root;
+    while (cur->right) {
+        cur = cur->right;
+    }
+
+    while (cur) {
+        Node *to_free = cur;
+        cur = cur->prev;
+        
+        free(to_free->key);
+        free(to_free->info);
+        free(to_free);
+    }
+
     free(tree);
 }
 
@@ -85,20 +90,6 @@ static void transplant(Tree *tree, Node *u, Node *v) {
 }
 
 static void fix_threads(Node *node) {
-    if (node->right) {
-        Node *cur = node->right;
-        while (cur->left)
-            cur = cur->left;
-        node->next = cur;
-    } else {
-        Node *cur = node->parent;
-        Node *child = node;
-        while (cur && child == cur->right) {
-            child = cur;
-            cur = cur->parent;
-        }
-        node->next = cur;
-    }
 
     if (node->left) {
         Node *cur = node->left;
@@ -115,17 +106,55 @@ static void fix_threads(Node *node) {
         node->prev = cur;
     }
 
-    if (node->next)
-        node->next->prev = node;
-    if (node->prev)
-        node->prev->next = node;
+    Node *next_node = NULL;
+    if (node->right) {
+        Node *cur = node->right;
+        while (cur->left) cur = cur->left;
+        next_node = cur;
+    } else {
+        Node *cur = node->parent;
+        Node *child = node;
+        while (cur && child == cur->right) {
+            child = cur;
+            cur = cur->parent;
+        }
+        next_node = cur;
+    }
+
+    if (next_node) {
+        next_node->prev = node;
+    }
 }
 
 static void fix_threads_delete(Node *node) {
-    if (node->prev)
-        node->prev->next = node->next;
-    if (node->next)
-        node->next->prev = node->prev;
+    Node *next_node = NULL;
+
+    if (node->right) {
+        Node *cur = node->right;
+        while (cur->left)
+            cur = cur->left;
+        next_node = cur;
+    } else {
+        Node *cur = node->parent;
+        Node *child = node;
+        while (cur && child == cur->right) {
+            child = cur;
+            cur = cur->parent;
+        }
+        next_node = cur;
+    }
+
+    if (next_node) {
+        next_node->prev = node->prev;
+    }
+}
+
+static int get_distance(const char *s1, const char *s2) {
+    int i = 0;
+    while (s1[i] && s2[i] && s1[i] == s2[i]) {
+        i++;
+    }
+    return 1000 - i; 
 }
 
 // 3. Основные операции
@@ -139,7 +168,6 @@ Err_tree tree_insert(Tree *tree, const char *key, InfoType value, InfoType *old_
         if (!node)
             return ERR_TREE_MEM;
         tree->root = node;
-        tree->size++;
         return ERR_TREE_OK;
     }
 
@@ -173,7 +201,6 @@ Err_tree tree_insert(Tree *tree, const char *key, InfoType value, InfoType *old_
         parent->right = node;
 
     fix_threads(node);
-    tree->size++;
 
     return ERR_TREE_OK;
 }
@@ -217,7 +244,6 @@ Err_tree tree_delete(Tree *tree, const char *key) {
     free(cur->key);
     free(cur->info);
     free(cur);
-    tree->size--;
 
     return ERR_TREE_OK;
 }
@@ -260,7 +286,19 @@ Err_tree tree_search_closest(const Tree *tree, const char *key, Node ***out, siz
         int cmp = strcmp(key, cur->key);
         if (cmp == 0) {
             predecessor = cur->prev;
-            successor = cur->next;
+            successor = NULL;
+            if (cur->right) {
+                successor = cur->right;
+                while (successor->left) successor = successor->left;
+            } else {
+                Node *p = cur->parent;
+                Node *ch = cur;
+                while (p && ch == p->right) {
+                    ch = p;
+                    p = p->parent;
+                }
+                successor = p;
+            }
             break;
         } else if (cmp > 0) {
             predecessor = cur;
@@ -274,61 +312,66 @@ Err_tree tree_search_closest(const Tree *tree, const char *key, Node ***out, siz
     if (!predecessor && !successor)
         return ERR_TREE_NOT_FOUND;
 
-    int diff_pred = predecessor ? strcmp(key, predecessor->key) : -1;
-    int diff_succ = successor ? strcmp(successor->key, key) : -1;
+    int diff_pred = predecessor ? get_distance(key, predecessor->key) : 10000;
+    int diff_succ = successor ? get_distance(key, successor->key) : 10000;
 
     if (predecessor && successor && diff_pred == diff_succ) {
         *out = malloc(2 * sizeof(Node *));
-        if (!*out)
-            return ERR_TREE_MEM;
+        if (!*out) return ERR_TREE_MEM;
         (*out)[0] = predecessor;
         (*out)[1] = successor;
         *out_size = 2;
     } else {
         *out = malloc(sizeof(Node *));
-        if (!*out)
-            return ERR_TREE_MEM;
+        if (!*out) return ERR_TREE_MEM;
+        
         if (!predecessor || (successor && diff_succ < diff_pred))
             (*out)[0] = successor;
         else
             (*out)[0] = predecessor;
         *out_size = 1;
     }
-
+    printf("Debug: pred_diff=%d, succ_diff=%d\n", diff_pred, diff_succ);
     return ERR_TREE_OK;
 }
 
 Err_tree tree_traverse(const Tree *tree, const char *limit, Node ***out, size_t *out_size) {
-    if (!tree->root)
-        return ERR_TREE_EMPTY;
+    if (!tree->root) return ERR_TREE_EMPTY;
 
-    size_t count = 0;
-    Node *cur = tree_min_node(tree->root);
-    while (cur) {
-        if (!limit || strcmp(cur->key, limit) <= 0)
-            count++;
-        cur = cur->next;
-    } // избавиться от линейной зависимости
-
-    if (count == 0)
-        return ERR_TREE_NOT_FOUND;
-
-    *out = malloc(count * sizeof(Node *));
-    if (!*out)
-        return ERR_TREE_MEM;
-
-    size_t i = 0;
-    cur = tree_min_node(tree->root);
-    while (cur && i < count) {
-        if (!limit || strcmp(cur->key, limit) <= 0)
-            (*out)[i++] = cur;
-        cur = cur->next;
+    Node *start_node = NULL;
+    if (!limit) {
+        start_node = tree->root;
+        while (start_node->right) start_node = start_node->right;
+    } else {
+        Node *cur = tree->root;
+        while (cur) {
+            int cmp = strcmp(cur->key, limit);
+            if (cmp <= 0) {
+                start_node = cur;
+                cur = cur->right;
+            } else {
+                cur = cur->left;
+            }
+        }
     }
 
-    for (size_t l = 0, r = count - 1; l < r; l++, r--) {
-        Node *tmp = (*out)[l];
-        (*out)[l] = (*out)[r];
-        (*out)[r] = tmp;
+    if (!start_node) return ERR_TREE_NOT_FOUND;
+
+    size_t count = 0;
+    Node *temp = start_node;
+    while (temp) {
+        count++;
+        temp = temp->prev;
+    }
+
+    *out = malloc(count * sizeof(Node *));
+    if (!*out) return ERR_TREE_MEM;
+
+
+    temp = start_node;
+    for (size_t i = 0; i < count; i++) {
+        (*out)[i] = temp;
+        temp = temp->prev;
     }
 
     *out_size = count;
@@ -368,28 +411,45 @@ Err_tree tree_import(Tree *tree, const char *filename) {
     return err;
 }
 
-static void print_recursive(const Node *node, int depth, int is_right) {
-    if (!node)
-        return;
-    print_recursive(node->right, depth + 1, 1);
-    for (int i = 0; i < depth; i++)
-        printf("    ");
-    if (depth > 0)
-        printf(is_right ? "┌── " : "└── ");
-    printf("%s: %u\n", node->key, *(node->info));
-    print_recursive(node->left, depth + 1, 0);
+static int node_depth(const Node *node) {
+    int depth = 0;
+    while (node->parent) {
+        depth++;
+        node = node->parent;
+    }
+    return depth;
 }
 
 void tree_print(const Tree *tree) {
-    if (!tree || !tree->root) {
-        printf("Дерево пусто.\n");
-        return;
-    }
-    printf("\n=== Дерево ===\n");
-    print_recursive(tree->root, 0, 0);
-    printf("==============\n");
-}
+    if (!tree || !tree->root) return;
 
+    Node *stack[1024];
+    int top = 0;
+    Node *cur = tree->root;
+
+    while (top > 0 || cur) {
+        // 1. Идем до упора вправо, сохраняя путь в стек
+        while (cur) {
+            stack[top++] = cur;
+            cur = cur->right;
+        }
+
+        // 2. Достаем узел (это самый правый из доступных)
+        cur = stack[--top];
+
+        // 3. Печатаем
+        int depth = node_depth(cur);
+        for (int i = 0; i < depth; i++) printf("    ");
+
+        if (depth > 0) {
+            printf(cur == cur->parent->right ? "┌── " : "└── ");
+        }
+        printf("%s: %u\n", cur->key, *(cur->info));
+
+        // 4. Переходим к левому поддереву
+        cur = cur->left;
+    }
+}
 
 static void url_encode(const char *src, char *dst, size_t dst_size) {
     size_t j = 0;
@@ -403,7 +463,8 @@ static void url_encode(const char *src, char *dst, size_t dst_size) {
 static void graphviz_recursive(const Node *node, FILE *f) {
     if (!node)
         return;
-    fprintf(f, "n%s[label=\"{<k>%s|%u|{<l>|<r>}}\"];", node->key, node->key, *(node->info));
+    fprintf(f, "n%s[label=\"{<k>%s|%u|{<l>|<r>}}\"];",
+            node->key, node->key, *(node->info));
     if (node->left) {
         fprintf(f, "n%s:l -> n%s;", node->key, node->left->key);
         graphviz_recursive(node->left, f);
@@ -412,7 +473,9 @@ static void graphviz_recursive(const Node *node, FILE *f) {
         fprintf(f, "n%s:r -> n%s;", node->key, node->right->key);
         graphviz_recursive(node->right, f);
     }
-    // Добавить укзание на узел prev
+    if (node->prev)
+        fprintf(f, "n%s -> n%s [style=dashed color=gray];",
+                node->key, node->prev->key);
 }
 
 Err_tree tree_graphviz(const Tree *tree) {

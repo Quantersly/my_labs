@@ -6,8 +6,8 @@
 
 #include "tree.h"
 
-#define MAX_SIZE 200000
-#define STEP     10000
+#define MAX_SIZE 100000
+#define STEP     5000
 #define REPEATS  200
 #define RUNS     5
 
@@ -37,7 +37,6 @@ int main(void) {
     for (int n = STEP; n <= MAX_SIZE; n += STEP) {
         double sum_insert = 0, sum_search = 0, sum_traverse = 0, sum_delete = 0;
 
-        // создаём массив индексов для перемешивания
         int *indices = malloc(n * sizeof(int));
         if (!indices) {
             fprintf(stderr, "malloc failed\n");
@@ -60,12 +59,16 @@ int main(void) {
             struct timespec t1, t2;
 
             // insert
+            char **test_keys = malloc(REPEATS * sizeof(char *));
+            for (int r = 0; r < REPEATS; r++) {
+                test_keys[r] = malloc(64);
+                generate_key(test_keys[r], n + r * (n / REPEATS));
+            }
+
             clock_gettime(CLOCK_MONOTONIC, &t1);
             for (int r = 0; r < REPEATS; r++) {
-                int idx = n + r * (n / REPEATS);
-                generate_key(key, idx);
                 InfoType old = 0;
-                tree_insert(tree, key, (InfoType)r, &old);
+                tree_insert(tree, test_keys[r], (InfoType)r, &old);
             }
             clock_gettime(CLOCK_MONOTONIC, &t2);
             sum_insert += measure_ns(t1, t2, REPEATS);
@@ -73,11 +76,9 @@ int main(void) {
             // search
             clock_gettime(CLOCK_MONOTONIC, &t1);
             for (int r = 0; r < REPEATS; r++) {
-                int idx = r * (n / REPEATS);
-                generate_key(key, idx);
                 Node **out = NULL;
                 size_t out_size = 0;
-                tree_search(tree, key, &out, &out_size);
+                tree_search(tree, test_keys[r], &out, &out_size);
                 free(out);
             }
             clock_gettime(CLOCK_MONOTONIC, &t2);
@@ -97,12 +98,15 @@ int main(void) {
             // delete
             clock_gettime(CLOCK_MONOTONIC, &t1);
             for (int r = 0; r < REPEATS; r++) {
-                int idx = n + r * (n / REPEATS);
-                generate_key(key, idx);
-                tree_delete(tree, key);
+                tree_delete(tree, test_keys[r]);
             }
             clock_gettime(CLOCK_MONOTONIC, &t2);
             sum_delete += measure_ns(t1, t2, REPEATS);
+
+            for (int r = 0; r < REPEATS; r++) {
+                free(test_keys[r]);
+            }
+            free(test_keys);
 
             tree_free(tree);
         }

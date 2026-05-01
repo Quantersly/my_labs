@@ -26,13 +26,11 @@ typedef struct Node {
     struct Node *right;
     struct Node *parent;
 
-    struct Node *next; // удалить и поправить в tree.c
     struct Node *prev;
 } Node;
 
 typedef struct {
     Node *root;
-    size_t size; // разобраться с этим полем
 } Tree;
 
 Err_tree tree_create(Tree **tree);
