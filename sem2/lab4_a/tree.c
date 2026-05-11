@@ -154,7 +154,7 @@ static int get_distance(const char *s1, const char *s2) {
     while (s1[i] && s2[i] && s1[i] == s2[i]) {
         i++;
     }
-    return 1000 - i; 
+    return i; 
 }
 
 // 3. Основные операции
@@ -311,11 +311,18 @@ Err_tree tree_search_closest(const Tree *tree, const char *key, Node ***out, siz
 
     if (!predecessor && !successor)
         return ERR_TREE_NOT_FOUND;
-
-    int diff_pred = predecessor ? get_distance(key, predecessor->key) : 10000;
-    int diff_succ = successor ? get_distance(key, successor->key) : 10000;
-
-    if (predecessor && successor && diff_pred == diff_succ) {
+    
+    int diff_pred_s = 0, diff_succ_s = 0;
+    int diff_pred = predecessor ? get_distance(key, predecessor->key) : -1;
+    if (diff_pred != -1 && strcmp(key, predecessor->key) != 0) {
+        diff_pred_s = (key[diff_pred] - predecessor->key[diff_pred]);
+    }
+    int diff_succ = successor ? get_distance(key, successor->key) : -1;
+    if (diff_succ != -1 && strcmp(key, successor->key) != 0) {
+        diff_succ_s = (successor->key[diff_succ] - key[diff_succ]);
+    }
+    
+    if (predecessor && successor && diff_pred == diff_succ && diff_pred_s == diff_succ_s) {
         *out = malloc(2 * sizeof(Node *));
         if (!*out) return ERR_TREE_MEM;
         (*out)[0] = predecessor;
@@ -325,13 +332,18 @@ Err_tree tree_search_closest(const Tree *tree, const char *key, Node ***out, siz
         *out = malloc(sizeof(Node *));
         if (!*out) return ERR_TREE_MEM;
         
-        if (!predecessor || (successor && diff_succ < diff_pred))
+        if (predecessor && successor && diff_pred == diff_succ) {
+            if (diff_pred_s > diff_succ_s) {
+                (*out)[0] = successor;
+            } else {
+                (*out)[0] = predecessor;
+            }
+        } else if (!predecessor || (successor && diff_succ > diff_pred))
             (*out)[0] = successor;
         else
             (*out)[0] = predecessor;
         *out_size = 1;
     }
-    printf("Debug: pred_diff=%d, succ_diff=%d\n", diff_pred, diff_succ);
     return ERR_TREE_OK;
 }
 
@@ -379,7 +391,6 @@ Err_tree tree_traverse(const Tree *tree, const char *limit, Node ***out, size_t 
 }
 
 // 4. Ввод/вывод 
-// избавиться от рекурсии, добавить взамен цикл while для подсчёта глубины через родителя
 
 Err_tree tree_import(Tree *tree, const char *filename) {
     FILE *f = fopen(filename, "r");
@@ -428,16 +439,13 @@ void tree_print(const Tree *tree) {
     Node *cur = tree->root;
 
     while (top > 0 || cur) {
-        // 1. Идем до упора вправо, сохраняя путь в стек
         while (cur) {
             stack[top++] = cur;
             cur = cur->right;
         }
 
-        // 2. Достаем узел (это самый правый из доступных)
         cur = stack[--top];
 
-        // 3. Печатаем
         int depth = node_depth(cur);
         for (int i = 0; i < depth; i++) printf("    ");
 
@@ -446,7 +454,6 @@ void tree_print(const Tree *tree) {
         }
         printf("%s: %u\n", cur->key, *(cur->info));
 
-        // 4. Переходим к левому поддереву
         cur = cur->left;
     }
 }

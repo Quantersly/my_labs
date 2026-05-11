@@ -6,8 +6,8 @@
 
 #include "tree.h"
 
-#define MAX_SIZE 100000
-#define STEP     5000
+#define MAX_SIZE 5000
+#define STEP     1000
 #define REPEATS  200
 #define RUNS     5
 
@@ -29,7 +29,7 @@ static void shuffle(int *arr, int n) {
 }
 
 int main(void) {
-    srand(42);
+    srand((unsigned int)time(NULL));
     printf("size,insert,search,traverse,delete\n");
 
     char key[64];
