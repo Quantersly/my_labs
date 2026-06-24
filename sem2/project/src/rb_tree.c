@@ -240,7 +240,7 @@ int rb_tree_insert(void* t_, const char* key) {
     while (cur) {
         prev = cur;
         int cmp = strcmp(key, cur->key);
-        if (cmp == 0) return 0;   /* уже есть */
+        if (cmp == 0) return 0;
         cur = (cmp < 0) ? cur->left : cur->right;
     }
     RBNode* n = _new_node(key);
