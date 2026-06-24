@@ -1,0 +1,5 @@
+*.o
+*.so
+wordle_ht
+wordle_rb
+obj/

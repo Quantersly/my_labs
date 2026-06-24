@@ -1,0 +1,112 @@
+# ============================================================
+# valgrind.supp — универсальные ncurses/libtinfo подавления
+# Работает на любой системе благодаря "..." (любые промежуточные стеки)
+# ============================================================
+
+{
+   ncurses_initscr_leak
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   fun:_nc_tiparm
+   ...
+   fun:newterm_sp
+   fun:newterm
+   fun:initscr
+   ...
+}
+
+{
+   ncurses_wrefresh_leak
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   fun:_nc_tiparm
+   ...
+   fun:vidputs_sp
+   ...
+   fun:doupdate_sp
+   fun:wrefresh
+   ...
+}
+
+{
+   ncurses_wrefresh_tsearch_leak
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   fun:__tsearch
+   fun:tsearch
+   ...
+   fun:_nc_tiparm
+   ...
+   fun:vidputs_sp
+   ...
+   fun:doupdate_sp
+   fun:wrefresh
+   ...
+}
+
+{
+   ncurses_draw_screen_leak
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   fun:_nc_tiparm
+   ...
+   fun:vidputs_sp
+   ...
+   fun:doupdate_sp
+   fun:wrefresh
+   fun:_draw_screen
+   ...
+}
+
+{
+   ncurses_term_db_leak
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   fun:strdup
+   ...
+   fun:_nc_tiparm
+   ...
+}
+
+{
+   ncurses_cursesw_alloc_leak
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   fun:calloc
+   ...
+   fun:_nc_tiparm
+   ...
+}
+
+{
+   ncurses_ti_setup_leak
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   fun:_nc_ti_setupterm
+   ...
+}
+
+{
+   ncurses_tinfo_leak
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   obj:*libtinfo*
+   ...
+}
+
+{
+   ncurses_ncurses_leak
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   obj:*libncurses*
+   ...
+}
